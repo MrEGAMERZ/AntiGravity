@@ -1,0 +1,90 @@
+name: antigravity
+version: "1.0.0"
+description: >
+  AntiGravity is an OpenEnv-compliant simulation environment for intelligent
+  email triage. An AI agent learns to classify, prioritise, and respond to
+  emails the way a human professional would.
+
+author: "AntiGravity Team"
+license: MIT
+
+tasks:
+  - id: easy_label
+    level: easy
+    name: "Single Email Label"
+    description: >
+      Given one email, classify it as spam, promo, important, or newsletter.
+    action_type: label
+    reward_range: [0.0, 1.0]
+    max_steps: 2
+
+  - id: medium_rank
+    level: medium
+    name: "Inbox Priority Sort"
+    description: >
+      Given 10 emails, rank them from most to least urgent.
+      Reward is Kendall's Tau correlation with the ground-truth ranking.
+    action_type: rank
+    reward_range: [0.0, 1.0]
+    max_steps: 2
+
+  - id: hard_triage
+    level: hard
+    name: "Triage + Reply + Archive"
+    description: >
+      Given a full inbox, label all emails, identify the urgent one,
+      and draft a professional reply.
+      Composite reward: 0.3×labels + 0.3×urgency + 0.4×reply quality.
+    action_type: triage
+    reward_range: [0.0, 1.0]
+    max_steps: 3
+
+observation_space:
+  type: object
+  properties:
+    task_id: { type: string }
+    task_level: { type: string, enum: [easy, medium, hard] }
+    step_count: { type: integer }
+    instructions: { type: string }
+    max_steps: { type: integer }
+    emails:
+      type: array
+      items:
+        type: object
+        properties:
+          id: { type: string }
+          sender: { type: string }
+          subject: { type: string }
+          body: { type: string }
+          timestamp: { type: string, format: date-time }
+          has_attachment: { type: boolean }
+
+action_space:
+  type: object
+  properties:
+    action_type: { type: string, enum: [label, rank, triage] }
+    labels:
+      type: object
+      additionalProperties: { type: string }
+    ranking:
+      type: array
+      items: { type: string }
+    reply_text: { type: string }
+    urgent_id: { type: string }
+
+endpoints:
+  reset: POST /reset
+  step: POST /step
+  state: GET /state
+  health: GET /health
+
+runtime:
+  min_vcpu: 2
+  min_memory_gb: 4
+  max_inference_minutes: 20
+  python_version: "3.11"
+
+deployment:
+  platform: huggingface_spaces
+  sdk: docker
+  port: 7860
