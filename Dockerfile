@@ -1,6 +1,7 @@
 # ───────────────────────────────────────────────────────────
-# AntiGravity — Dockerfile for Hugging Face Spaces (Docker SDK)
+# AntiGravity v4 — Dockerfile for Hugging Face Spaces (Docker SDK)
 # Runs the FastAPI server on port 7860
+# Cache-bust: 20260329
 # ───────────────────────────────────────────────────────────
 
 FROM python:3.11-slim
