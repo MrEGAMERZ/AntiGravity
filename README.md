@@ -104,6 +104,7 @@ All graders are **deterministic** — same input, same seed, always produces the
 | `GET`  | `/`        | Environment info + endpoint list |
 | `GET`  | `/health`  | Health check (`{"status": "ok"}`) |
 | `GET`  | `/metrics` | Aggregate reward stats across sessions |
+| `GET`  | `/play`    | **Interactive Visualizer Dashboard** 🌟 |
 | `POST` | `/reset`   | Start new episode (`task_level`, `seed?`) |
 | `POST` | `/step`    | Submit action → `(obs, reward, done, info)` |
 | `GET`  | `/state`   | Full internal state snapshot (debug/eval) |
