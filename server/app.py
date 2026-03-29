@@ -1,11 +1,19 @@
 """
-AntiGravity — FastAPI Server (OpenEnv HTTP Interface)
-Exposes POST /reset, POST /step, GET /state
+AntiGravity — FastAPI Server  v2  (OpenEnv HTTP Interface)
+Exposes POST /reset, POST /step, GET /state, GET /health
+
+New in v2:
+  - POST /reset returns proper Observation model
+  - GET /metrics endpoint (aggregate stats across sessions)
+  - Richer root metadata
+  - Better error handling
 """
 from __future__ import annotations
 
 import sys
 import os
+import time
+from collections import defaultdict
 
 # Make sure the antigravity package root is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,12 +30,20 @@ from environment.env import AntiGravityEnv
 # ─── App setup ───────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="AntiGravity Email Triage Environment",
+    title="AntiGravity — Email Triage OpenEnv",
     description=(
-        "OpenEnv-compliant HTTP server for the AntiGravity email triage environment. "
-        "Exposes reset(), step(), and state() endpoints."
+        "**AntiGravity** is an OpenEnv-compliant HTTP server for email triage. "
+        "An AI agent interacts with a simulated inbox via `reset()` → `step()` loops, "
+        "receiving scored feedback (0.0–1.0) on classification, ranking, and reply quality.\n\n"
+        "**Tasks:**\n"
+        "- `easy` — Classify a single email (spam/promo/newsletter/important)\n"
+        "- `medium` — Rank 10 emails by urgency (Kendall's Tau grader)\n"
+        "- `hard` — Full triage: label all emails + identify urgent + draft reply\n\n"
+        "Built for the **OpenEnv Hackathon · Meta × Scaler · 2026**"
     ),
-    version="1.0.0",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 app.add_middleware(
@@ -40,6 +56,10 @@ app.add_middleware(
 # Single environment instance (stateful per-process)
 _env = AntiGravityEnv()
 
+# Session-level metrics
+_metrics: dict = defaultdict(lambda: {"total_episodes": 0, "total_reward": 0.0, "step_calls": 0})
+_server_start = time.time()
+
 
 # ─── Request schemas ─────────────────────────────────────────────────────────
 
@@ -50,26 +70,55 @@ class ResetRequest(BaseModel):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
-@app.get("/", tags=["meta"])
+@app.get("/", tags=["meta"], summary="Environment info")
 def root():
+    """Returns metadata about this environment."""
     return {
         "name": "AntiGravity",
+        "version": "2.0.0",
         "description": "Email triage OpenEnv environment",
-        "endpoints": ["/reset", "/step", "/state", "/health"],
+        "tasks": ["easy", "medium", "hard"],
+        "endpoints": ["/reset", "/step", "/state", "/health", "/metrics", "/docs"],
+        "grader_type": "deterministic",
+        "reward_range": [0.0, 1.0],
     }
 
 
-@app.get("/health", tags=["meta"])
+@app.get("/health", tags=["meta"], summary="Health check")
 def health():
-    return {"status": "ok"}
+    """Returns {status: ok} when server is running."""
+    return {"status": "ok", "uptime_seconds": round(time.time() - _server_start)}
 
 
-@app.post("/reset", response_model=Observation, tags=["env"])
+@app.get("/metrics", tags=["meta"], summary="Aggregate session metrics")
+def metrics():
+    """Returns aggregate performance metrics across all sessions."""
+    total_eps = sum(v["total_episodes"] for v in _metrics.values())
+    total_reward = sum(v["total_reward"] for v in _metrics.values())
+    return {
+        "total_episodes": total_eps,
+        "total_step_calls": sum(v["step_calls"] for v in _metrics.values()),
+        "mean_reward_all_time": round(total_reward / max(total_eps, 1), 4),
+        "per_task": {
+            level: {
+                "episodes": _metrics[level]["total_episodes"],
+                "mean_reward": round(
+                    _metrics[level]["total_reward"] / max(_metrics[level]["total_episodes"], 1),
+                    4,
+                ),
+            }
+            for level in ["easy", "medium", "hard"]
+        },
+        "uptime_seconds": round(time.time() - _server_start),
+    }
+
+
+@app.post("/reset", response_model=Observation, tags=["env"], summary="Start a new episode")
 def reset(req: ResetRequest):
     """
-    Reset the environment and return the initial observation.
-    - task_level: "easy" | "medium" | "hard"
-    - seed: optional integer for reproducibility
+    Reset the environment. Returns the initial Observation.
+    - **task_level**: `easy` | `medium` | `hard`
+    - **seed**: optional integer for reproducible episodes
     """
     if req.task_level not in ("easy", "medium", "hard"):
         raise HTTPException(
@@ -77,25 +126,31 @@ def reset(req: ResetRequest):
             detail=f"Invalid task_level '{req.task_level}'. Must be easy, medium, or hard.",
         )
     obs = _env.reset(task_level=req.task_level, seed=req.seed)
+    _metrics[req.task_level]["total_episodes"] += 1
     return obs
 
 
-@app.post("/step", response_model=StepResult, tags=["env"])
+@app.post("/step", response_model=StepResult, tags=["env"], summary="Submit an agent action")
 def step(action: Action):
     """
-    Submit an agent action and receive (observation, reward, done, info).
+    Submit an agent action. Returns `(observation, reward, done, info)`.
+
+    **action_type**: `label` | `rank` | `triage`
     """
     try:
         result = _env.step(action)
+        _metrics[_env.state().get("task_level", "easy")]["step_calls"] += 1
+        _metrics[_env.state().get("task_level", "easy")]["total_reward"] += result.reward
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result
 
 
-@app.get("/state", tags=["env"])
+@app.get("/state", tags=["env"], summary="Inspect internal environment state")
 def state():
     """
-    Return the full internal environment state (for debugging/evaluation).
+    Returns the full internal environment state snapshot.
+    Useful for debugging, evaluation, or building agent visualisations.
     """
     return _env.state()
 
