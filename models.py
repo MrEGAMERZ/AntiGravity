@@ -11,8 +11,11 @@ import uuid
 
 # ─── Email object ────────────────────────────────────────────────────────────
 
+import random as _random
+
 class Email(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    id: str = Field(default_factory=lambda: "".join(_random.choices("0123456789abcdef", k=8)))
+
     sender: str
     subject: str
     body: str

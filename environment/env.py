@@ -5,6 +5,7 @@ Implements reset(), step(), state() per the OpenEnv contract.
 from __future__ import annotations
 
 import uuid
+import hashlib
 from typing import Optional
 
 from models import (
@@ -70,8 +71,14 @@ class AntiGravityEnv:
         else:
             emails, gt_labels, gt_ranking, urgent_id, reply_kws = generate_hard_inbox(seed)
 
+        # Derive a deterministic task_id from seed (reproducible episodes)
+        if seed is not None:
+            task_id = hashlib.md5(f"{level}-{seed}".encode()).hexdigest()[:16]
+        else:
+            task_id = str(uuid.uuid4())
+
         self._state = InboxState(
-            task_id=str(uuid.uuid4()),
+            task_id=task_id,
             task_level=level,
             emails=emails,
             ground_truth_labels=gt_labels,
