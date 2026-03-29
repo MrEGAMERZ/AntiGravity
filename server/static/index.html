@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AntiGravity Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #05050a;
+            --surface: #0d0d18;
+            --surface2: #13131f;
+            --border: rgba(255,255,255,0.07);
+            --accent: #7c5cfc;
+            --accent2: #fc5c7d;
+            --accent3: #5cf8c8;
+            --text: #e8e8f0;
+            --muted: #6b6b85;
+            --gold: #f5c842;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: 'JetBrains Mono', monospace; font-size: 13px;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: ''; position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 10%, rgba(124,92,252,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(252,92,125,0.05) 0%, transparent 50%);
+            pointer-events: none; z-index: 0;
+        }
+
+        .container {
+            max-width: 1100px; margin: 0 auto; padding: 40px 32px;
+            position: relative; z-index: 1; display: grid; gap: 24px;
+        }
+
+        header {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            border-bottom: 1px solid var(--border); padding-bottom: 20px;
+        }
+
+        h1 { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; letter-spacing: -0.03em; }
+        h1 span.grad {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--gold) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        
+        .pulse {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            background: var(--accent3); margin-right: 8px;
+            box-shadow: 0 0 10px var(--accent3); animation: blink 2s infinite;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .metrics-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+        }
+
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 6px; padding: 20px; position: relative; overflow: hidden;
+        }
+
+        .card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 8px; }
+        .card-val { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 700; color: #fff; }
+
+        .dashboard {
+            display: grid; grid-template-columns: 3fr 1fr; gap: 20px;
+        }
+
+        .inbox {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+
+        .email {
+            background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid transparent;
+            border-radius: 4px; padding: 16px;
+        }
+        
+        .email.urgent { border-left-color: var(--accent2); background: rgba(252,92,125,0.05); }
+
+        .email-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .email-sender { color: var(--accent); font-weight: 500; }
+        .email-subject { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px; }
+        .email-body { color: #9090aa; line-height: 1.6; font-size: 12px; white-space: pre-wrap; }
+
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+        .side-card { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 6px; }
+
+        .badge {
+            font-size: 10px; padding: 4px 8px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.1em;
+            background: rgba(255,255,255,0.1); color: #fff;
+        }
+
+        .badge.easy { background: rgba(92,248,200,0.15); color: var(--accent3); }
+        .badge.medium { background: rgba(245,200,66,0.15); color: var(--gold); }
+        .badge.hard { background: rgba(252,92,125,0.15); color: var(--accent2); }
+
+        .hidden { display: none !important; }
+
+        code { background: #000; padding: 2px 6px; border-radius: 3px; color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1><span class="grad">AntiGravity</span> Visualizer</h1>
+            <div style="margin-top: 8px; color: var(--muted);"><span class="pulse"></span> Server Live • Polling internal state...</div>
+        </div>
+        <div style="text-align: right;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);">Mean Reward</div>
+            <div style="font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 700; color: var(--accent3);" id="global-reward">0.000</div>
+        </div>
+    </header>
+
+    <div class="metrics-grid">
+        <div class="card">
+            <div class="card-label">Current Task</div>
+            <div class="card-val" id="st-task">Waiting...</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Step Count</div>
+            <div class="card-val" id="st-step">0</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Episode Reward</div>
+            <div class="card-val" id="st-reward">0.00</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Global Episodes</div>
+            <div class="card-val" id="st-eps">0</div>
+        </div>
+    </div>
+
+    <div id="no-state" style="text-align: center; padding: 60px 0; color: var(--muted);">
+        <p>No active episode running.</p>
+        <p style="margin-top: 10px; color: #fff;">Run <code>python3 inference.py</code> to see the agent in action.</p>
+    </div>
+
+    <div class="dashboard hidden" id="live-dashboard">
+        <div class="inbox" id="inbox-list">
+            <!-- Emails inject here -->
+        </div>
+
+        <div class="sidebar">
+            <div class="side-card">
+                <div class="card-label">Ground Truth Details</div>
+                <div style="font-size: 11px; margin-top: 12px;" id="st-details">...</div>
+            </div>
+            
+            <div class="side-card">
+                <div class="card-label">Last Agent Action</div>
+                <pre style="font-size: 11px; color: var(--gold); margin-top: 12px; white-space: pre-wrap;" id="st-action">No actions yet</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function update() {
+        try {
+            // Fetch state
+            const stateRes = await fetch('/state');
+            const state = await stateRes.json();
+
+            // Fetch metrics
+            const metRes = await fetch('/metrics');
+            const met = await metRes.json();
+
+            document.getElementById('st-eps').innerText = met.total_episodes;
+            document.getElementById('global-reward').innerText = parseFloat(met.mean_reward_all_time).toFixed(3);
+
+            if (state.status === "not_started" || !state.task_id) {
+                document.getElementById('no-state').classList.remove('hidden');
+                document.getElementById('live-dashboard').classList.add('hidden');
+                document.getElementById('st-task').innerText = "Waiting...";
+                return;
+            }
+
+            document.getElementById('no-state').classList.add('hidden');
+            document.getElementById('live-dashboard').classList.remove('hidden');
+
+            // Header stats
+            document.getElementById('st-task').innerHTML = `<span class="badge ${state.task_level}">${state.task_level}</span>`;
+            document.getElementById('st-step').innerText = `${state.step_count} / ${state.task_level === 'hard' ? 3 : 2}`;
+            
+            const rwd = parseFloat(state.cumulative_reward || 0).toFixed(4);
+            document.getElementById('st-reward').innerText = rwd;
+            if (state.done) {
+                document.getElementById('st-reward').style.color = "var(--accent3)";
+            } else {
+                document.getElementById('st-reward').style.color = "#fff";
+            }
+
+            // Ground truth dump
+            const gt = {
+                urgent_email: state.urgent_email_id,
+                labels: state.ground_truth_labels,
+                keywords: state.expected_reply_keywords
+            };
+            document.getElementById('st-details').innerText = JSON.stringify(gt, null, 2);
+
+            // Render emails
+            const inbox = document.getElementById('inbox-list');
+            inbox.innerHTML = '';
+            
+            (state.emails || []).forEach(e => {
+                const el = document.createElement('div');
+                el.className = 'email';
+                if (e.id === state.urgent_email_id) el.classList.add('urgent');
+                
+                const trueLabel = (state.ground_truth_labels || {})[e.id] || "";
+                
+                el.innerHTML = `
+                    <div class="email-header">
+                        <span class="email-sender">${e.sender}</span>
+                        <span class="badge" style="background: rgba(255,255,255,0.05)">${trueLabel}</span>
+                    </div>
+                    <div class="email-subject">${e.subject}</div>
+                    <div class="email-body">${e.body}</div>
+                    <div style="font-size: 10px; color: var(--muted); margin-top: 12px;">ID: ${e.id} | Sent: ${e.timestamp}</div>
+                `;
+                inbox.appendChild(el);
+            });
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    setInterval(update, 1000);
+    update();
+</script>
+
+</body>
+</html>

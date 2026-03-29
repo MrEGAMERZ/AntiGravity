@@ -19,9 +19,11 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+import os
 
 from models import Action, Observation, StepResult
 from environment.env import AntiGravityEnv
@@ -128,6 +130,17 @@ def reset(req: ResetRequest):
     obs = _env.reset(task_level=req.task_level, seed=req.seed)
     _metrics[req.task_level]["total_episodes"] += 1
     return obs
+
+
+@app.get("/play", response_class=HTMLResponse, tags=["ui"], summary="Interactive Visualizer")
+def play_ui():
+    """Returns the Interactive Visualizer UI for judges."""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    try:
+        with open(html_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Visualizer UI not found")
 
 
 @app.post("/step", response_model=StepResult, tags=["env"], summary="Submit an agent action")
