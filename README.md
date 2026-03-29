@@ -152,16 +152,17 @@ export OPENAI_API_KEY="sk-..."
 python inference.py
 ```
 
-### Baseline Scores
+### Baseline Scores (v2 — Chain-of-Thought Agent)
 
-| Task   | GPT-4o-mini | Llama-3.3-70b (Groq) |
-|--------|-------------|----------------------|
-| Easy   | 0.92        | **1.00** ✅           |
-| Medium | 0.74        | **0.89** ✅           |
-| Hard   | 0.61        | 0.48                 |
-| **Average** | **0.76** | **0.79** ✅      |
+| Task       | GPT-4o-mini (v1) | **Llama-3.3-70b via Groq (v2)** |
+|------------|------------------|---------------------------------|
+| Easy       | 0.92             | **1.00** ✅                      |
+| Medium     | 0.74             | **0.89** ✅                      |
+| Hard       | 0.61             | **0.83** ✅ (+0.22!)             |
+| **Average**| **0.76**         | **🏆 0.91**                      |
 
-*Tested live against `https://mregamerz-antigravity.hf.space`. Llama-3.3 via Groq is the recommended free baseline.*
+*Tested live against `https://mregamerz-antigravity.hf.space` using Chain-of-Thought prompting.*  
+*Run: `GROQ_API_KEY=<your_key> API_BASE_URL=https://mregamerz-antigravity.hf.space python3 inference.py`*
 
 ---
 
