@@ -152,16 +152,16 @@ export OPENAI_API_KEY="sk-..."
 python inference.py
 ```
 
-### Baseline Scores (GPT-4o-mini)
+### Baseline Scores
 
-| Task   | Score |
-|--------|-------|
-| Easy   | 0.92  |
-| Medium | 0.74  |
-| Hard   | 0.61  |
-| **Average** | **0.76** |
+| Task   | GPT-4o-mini | Llama-3.3-70b (Groq) |
+|--------|-------------|----------------------|
+| Easy   | 0.92        | **1.00** ✅           |
+| Medium | 0.74        | **0.89** ✅           |
+| Hard   | 0.61        | 0.48                 |
+| **Average** | **0.76** | **0.79** ✅      |
 
-*Scores vary slightly across seeds. Deterministic with `seed=42`.*
+*Tested live against `https://mregamerz-antigravity.hf.space`. Llama-3.3 via Groq is the recommended free baseline.*
 
 ---
 

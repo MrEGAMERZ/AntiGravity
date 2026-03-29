@@ -1,13 +1,13 @@
 """
 AntiGravity — inference.py
 Baseline inference script that runs an AI agent against all 3 tasks.
-Uses the OpenAI SDK to drive the agent (model configurable via env vars).
+Uses Groq's free API (OpenAI-compatible) to drive the agent.
 
 Required env vars:
-  API_BASE_URL     e.g. https://your-space.hf.space  (or http://localhost:7860)
-  MODEL_NAME       e.g. gpt-4o-mini
-  OPENAI_API_KEY   your OpenAI-compatible API key
-  HF_TOKEN         (optional) for HF Spaces auth
+  API_BASE_URL   e.g. https://your-space.hf.space  (or http://localhost:7860)
+  MODEL_NAME     e.g. llama-3.3-70b-versatile  (default)
+  GROQ_API_KEY   your free Groq API key (console.groq.com)
+  HF_TOKEN       (optional) for HF Spaces auth
 """
 from __future__ import annotations
 
@@ -20,10 +20,14 @@ import httpx
 from openai import OpenAI
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:7860").rstrip("/")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+MODEL_NAME = os.environ.get("MODEL_NAME", "llama-3.3-70b-versatile")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Groq is OpenAI-compatible — just swap the base_url
+client = OpenAI(
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1",
+)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -119,7 +123,7 @@ def run_hard() -> float:
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
-    print(f"AntiGravity Inference — target: {API_BASE_URL}, model: {MODEL_NAME}")
+    print(f"AntiGravity Inference — target: {API_BASE_URL}, model: {MODEL_NAME} (via Groq)")
     print("=" * 60)
 
     # Health check
