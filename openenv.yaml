@@ -1,12 +1,17 @@
 name: antigravity
-version: "1.0.0"
+version: "2.0.0"
 description: >
-  AntiGravity is an OpenEnv-compliant simulation environment for intelligent
-  email triage. An AI agent learns to classify, prioritise, and respond to
-  emails the way a human professional would.
+  AntiGravity is an OpenEnv-compliant HTTP environment for intelligent
+  email triage. An AI agent learns to classify, rank by urgency, and
+  respond to emails the way a professional would — using a 3-level
+  task structure with deterministic, reproducible graders.
 
 author: "AntiGravity Team"
 license: MIT
+homepage: "https://huggingface.co/spaces/mregamerz/AntiGravity"
+repository: "https://huggingface.co/spaces/mregamerz/AntiGravity/tree/main"
+
+# ─── Tasks ───────────────────────────────────────────────────────────────────
 
 tasks:
   - id: easy_label
@@ -14,69 +19,136 @@ tasks:
     name: "Single Email Label"
     description: >
       Given one email, classify it as spam, promo, important, or newsletter.
+      Grader: exact match = 1.0, adjacent category = 0.5, wrong = 0.0.
     action_type: label
     reward_range: [0.0, 1.0]
     max_steps: 2
+    baseline_score: 1.00   # Llama-3.3-70b via Groq (v2 CoT agent)
 
   - id: medium_rank
     level: medium
     name: "Inbox Priority Sort"
     description: >
       Given 10 emails, rank them from most to least urgent.
+      Urgency order: important > newsletter > promo > spam.
       Reward is Kendall's Tau correlation with the ground-truth ranking.
     action_type: rank
     reward_range: [0.0, 1.0]
     max_steps: 2
+    baseline_score: 0.89   # Llama-3.3-70b via Groq (v2 CoT agent)
 
   - id: hard_triage
     level: hard
     name: "Triage + Reply + Archive"
     description: >
-      Given a full inbox, label all emails, identify the urgent one,
-      and draft a professional reply.
-      Composite reward: 0.3×labels + 0.3×urgency + 0.4×reply quality.
+      Given a full inbox, label all emails, identify the single urgent email,
+      and draft a concise professional reply (20-80 words).
+      Composite reward: 0.30×label_accuracy + 0.30×urgency_id + 0.40×reply_quality.
+      Reply grader uses synonym-aware keyword matching + coherence + tone scoring.
     action_type: triage
     reward_range: [0.0, 1.0]
     max_steps: 3
+    baseline_score: 0.83   # Llama-3.3-70b via Groq (v2 CoT agent)
+
+# ─── Observation Space ────────────────────────────────────────────────────────
 
 observation_space:
   type: object
+  required: [task_id, task_level, emails, step_count, instructions, max_steps]
   properties:
-    task_id: { type: string }
-    task_level: { type: string, enum: [easy, medium, hard] }
-    step_count: { type: integer }
-    instructions: { type: string }
-    max_steps: { type: integer }
+    task_id:
+      type: string
+      description: "Unique episode ID (deterministic when seed is provided)"
+    task_level:
+      type: string
+      enum: [easy, medium, hard]
+    step_count:
+      type: integer
+      minimum: 0
+    instructions:
+      type: string
+      description: "Natural-language goal for the agent"
+    max_steps:
+      type: integer
     emails:
       type: array
       items:
         type: object
+        required: [id, sender, subject, body, timestamp]
         properties:
-          id: { type: string }
-          sender: { type: string }
+          id:      { type: string }
+          sender:  { type: string, format: email }
           subject: { type: string }
-          body: { type: string }
-          timestamp: { type: string, format: date-time }
-          has_attachment: { type: boolean }
+          body:    { type: string }
+          timestamp:
+            type: string
+            format: date-time
+          has_attachment: { type: boolean, default: false }
+
+# ─── Action Space ─────────────────────────────────────────────────────────────
 
 action_space:
   type: object
+  required: [action_type]
   properties:
-    action_type: { type: string, enum: [label, rank, triage] }
+    action_type:
+      type: string
+      enum: [label, rank, triage]
     labels:
       type: object
-      additionalProperties: { type: string }
+      description: "Map of email_id → category (spam|promo|important|newsletter)"
+      additionalProperties:
+        type: string
+        enum: [spam, promo, important, newsletter]
     ranking:
       type: array
+      description: "Email IDs ordered from most to least urgent"
       items: { type: string }
-    reply_text: { type: string }
-    urgent_id: { type: string }
+    reply_text:
+      type: string
+      description: "Professional reply draft, 20-80 words, no URLs"
+      minLength: 20
+      maxLength: 400
+    urgent_id:
+      type: string
+      description: "ID of the single email requiring an urgent reply"
+
+# ─── Grader Properties ────────────────────────────────────────────────────────
+
+graders:
+  easy:
+    type: deterministic
+    method: exact_match_with_partial_credit
+    adjacent_categories:
+      promo: [newsletter]
+      newsletter: [promo]
+  medium:
+    type: deterministic
+    method: kendall_tau_normalized
+    range: [0.0, 1.0]
+  hard:
+    type: deterministic
+    method: composite
+    weights:
+      label_accuracy: 0.30
+      urgency_identification: 0.30
+      reply_quality: 0.40
+    reply_scoring:
+      keyword_weight: 0.60
+      coherence_weight: 0.25
+      tone_weight: 0.15
+      synonym_expansion: true
+
+# ─── Endpoints ───────────────────────────────────────────────────────────────
 
 endpoints:
-  reset: POST /reset
-  step: POST /step
-  state: GET /state
-  health: GET /health
+  reset:  POST /reset
+  step:   POST /step
+  state:  GET  /state
+  health: GET  /health
+  metrics: GET /metrics
+
+# ─── Runtime ─────────────────────────────────────────────────────────────────
 
 runtime:
   min_vcpu: 2
@@ -84,7 +156,11 @@ runtime:
   max_inference_minutes: 20
   python_version: "3.11"
 
+# ─── Deployment ──────────────────────────────────────────────────────────────
+
 deployment:
   platform: huggingface_spaces
+  space_id: mregamerz/AntiGravity
   sdk: docker
   port: 7860
+  url: "https://mregamerz-antigravity.hf.space"
