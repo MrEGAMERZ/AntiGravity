@@ -1,3 +1,14 @@
+---
+title: AntiGravity
+emoji: 🌌
+colorFrom: purple
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: true
+license: mit
+---
+
 # 🌌 AntiGravity: Mastering the Inbox 📧
 
 > **An OpenEnv Environment for Intelligent Email Triage**
