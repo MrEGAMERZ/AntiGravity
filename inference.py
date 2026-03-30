@@ -96,31 +96,71 @@ def run_easy() -> float:
 def run_medium() -> float:
     """Task: Inbox Priority Ranking (Kendall's Tau)."""
     obs = _post("/reset", {"task_level": "medium"})
-    email_str = "\n".join([f"- {e['id']}: {e['subject']}" for e in obs["emails"]])
+    emails = obs["emails"]
     
+    # Give the model full subject + sender, not just subject
+    email_str = "\n".join([
+        f"- ID:{e['id']} | From:{e['sender']} | Subject:{e['subject']}"
+        for e in emails
+    ])
+
     sys = (
-        "Rank emails by priority (important > newsletter > promo > spam). "
-        "Return ONLY this JSON: "
+        "You are an expert email prioritizer.\n"
+        "Rank these emails from MOST to LEAST urgent using this strict hierarchy:\n"
+        "  1. important (action required, deadlines, from real people)\n"
+        "  2. newsletter (informational, no action needed)\n"
+        "  3. promo (marketing, offers, discounts)\n"
+        "  4. spam (unsolicited, suspicious, irrelevant)\n"
+        "Within the same category, rank by time-sensitivity.\n"
+        "Return ONLY valid JSON, no explanation:\n"
         '{"action_type": "rank", "ranking": ["id1", "id2", ...]}'
     )
-    raw = _llm_call(sys, f"Emails:\n{email_str}")
+    raw = _llm_call(sys, f"Rank these emails:\n{email_str}")
     res = _post("/step", _extract_json(raw))
     print(f"[MEDIUM] Reward: {res['reward']:.2f}")
     return res["reward"]
+
 
 def run_hard() -> float:
     """Task: Full Triage (Label + Urgent ID + Reply)."""
     obs = _post("/reset", {"task_level": "hard"})
     emails = obs["emails"]
-    
+
+    # Build full email context — don't truncate body at 200 chars
+    email_blocks = "\n\n".join([
+        f"ID: {e['id']}\n"
+        f"From: {e['sender']}\n"
+        f"Subject: {e['subject']}\n"
+        f"Body: {e['body']}"
+        for e in emails
+    ])
+
     sys = (
-        "Identify the ONE urgent email, write a professional reply (<80 words), and label all emails. "
-        "Return ONLY this JSON:\n"
-        '{"action_type": "triage", "labels": {...}, "urgent_id": "...", "reply_text": "..."}'
+        "You are a professional executive assistant triaging an inbox.\n\n"
+        "STEP 1 — LABEL every email as exactly one of: spam, promo, newsletter, important\n"
+        "  - important: requires action, has deadline, from a real person or client\n"
+        "  - newsletter: informational digest, no action needed\n"
+        "  - promo: discount, offer, marketing email\n"
+        "  - spam: unsolicited, suspicious, irrelevant\n\n"
+        "STEP 2 — URGENT ID: pick the ONE email that needs an immediate reply.\n"
+        "  - Must be labeled 'important'\n"
+        "  - Has the most time-sensitive language (ASAP, deadline, urgent, waiting)\n"
+        "  - From a real human, not a mailing list\n\n"
+        "STEP 3 — REPLY: Write a professional reply to that urgent email.\n"
+        "  - 20 to 60 words, no more\n"
+        "  - Acknowledge receipt, confirm you are on it, give a timeframe\n"
+        "  - Use words like: received, understood, will handle, on it, follow up\n"
+        "  - No URLs, no ALL CAPS, no filler\n\n"
+        "Return ONLY this JSON with no explanation:\n"
+        "{\n"
+        '  "action_type": "triage",\n'
+        '  "labels": {"<id>": "<category>", ...},\n'
+        '  "urgent_id": "<id of the most urgent email>",\n'
+        '  "reply_text": "<your professional reply here>"\n'
+        "}"
     )
-    user = "\n\n".join([f"ID: {e['id']}\nFrom: {e['sender']}\nSub: {e['subject']}\nBody: {e['body'][:200]}" for e in emails])
-    
-    raw = _llm_call(sys, user)
+
+    raw = _llm_call(sys, f"Here are the emails:\n\n{email_blocks}")
     res = _post("/step", _extract_json(raw))
     print(f"[HARD]   Reward: {res['reward']:.2f}")
     return res["reward"]
