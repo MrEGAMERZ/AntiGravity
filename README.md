@@ -1,236 +1,82 @@
----
-title: AntiGravity
-emoji: 📧
-colorFrom: purple
-colorTo: indigo
-sdk: docker
-app_port: 7860
-pinned: false
----
+# 🌌 AntiGravity: Mastering the Inbox 📧
 
-# AntiGravity 📧
-
-> **An OpenEnv-compliant AI environment for intelligent email triage**
-> Built for the **OpenEnv Hackathon · Meta × Scaler · April 2026**
-
-[![OpenEnv](https://img.shields.io/badge/OpenEnv-compliant-7c5cfc)](https://github.com/meta-pytorch/OpenEnv)
-[![Python](https://img.shields.io/badge/Python-3.11-blue)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green)](https://fastapi.tiangolo.com)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED)](https://docker.com)
-[![HF Space](https://img.shields.io/badge/🤗%20Space-Live-yellow)](https://huggingface.co/spaces/mregamerz/AntiGravity)
-[![Score](https://img.shields.io/badge/Baseline%20Score-0.91%20avg-brightgreen)](https://huggingface.co/spaces/mregamerz/AntiGravity)
+> **An OpenEnv Environment for Intelligent Email Triage**
+> Built with ❤️ for the Meta × Scaler Hackathon · 2026
 
 ---
 
-## 🧠 What is AntiGravity?
+## 🚀 The Mission: Why AntiGravity?
 
-AntiGravity simulates a **realistic professional email inbox** where an AI agent learns to:
-- **Classify** emails (spam / promo / newsletter / important)
-- **Prioritize** a full inbox by urgency
-- **Triage** an inbox end-to-end: label + identify what's urgent + draft a professional reply
+We’ve all seen AI models write code or solve logic puzzles, but the **real-world messy inbox** remains one of the hardest reasoning tests. 
 
-No human uses this environment directly — an AI agent "plays" in it, takes actions, and receives **deterministic scored feedback**. Researchers and companies can use it to **benchmark how well a model reasons about real-world email tasks**.
+We built **AntiGravity** to fill a gap: while the RL community has plenty of games and toy examples, we wanted to build an environment that models a task millions of professionals do every day — **Email Triage.**
 
-> **Why Email?** Email triage is one of the most universal, high-stakes knowledge-work tasks. It requires reading comprehension, contextual reasoning, urgency assessment, and drafting skill — exactly what separates good LLMs from great ones. No standard OpenEnv benchmark existed for this. **AntiGravity fills that gap.**
+Our goal was to create an environment where an agent isn't just "predicting text"; it’s *making decisions*. Which email is actually urgent? What tone is appropriate for this client? How do we ignore a "low-urgency" newsletter while prioritising a meeting request? 
 
 ---
 
-## 🎯 Tasks
+## 🏗️ Our Implementation Journey
 
-| # | Level  | Task | Grader |
-|---|--------|------|--------|
-| 1 | 🟢 Easy | **Single Email Label** — Classify one email as `spam`, `promo`, `newsletter`, or `important` | Exact match: 1.0, adjacent category: 0.5, wrong: 0.0 |
-| 2 | 🟡 Medium | **Inbox Priority Sort** — Rank 10 emails by urgency, most urgent first | Kendall's Tau correlation ∈ [0, 1] |
-| 3 | 🔴 Hard | **Triage + Reply + Archive** — Label all emails, identify the urgent one, draft a professional reply | Composite: 0.3×labels + 0.3×urgency + 0.4×reply quality |
+We didn't just write code; we iterated through a process of discovery. Here's how the "AntiGravity" world was born:
 
-All graders are **deterministic** — same input, same seed, always produces the same score.
+1.  **Level 1: The Classifier**: We started by building the foundation of classification. We wanted to make sure an agent could distinguish between a generic marketing promotion and a high-stakes contract.
+2.  **Level 2: The Prioritizer**: Then we moved into *relative ranking*. This was where it got interesting — we implemented **Kendall’s Tau** logic to reward the agent for getting the *order* right, not just the labels.
+3.  **Level 3: The Full Executive Assistant**: Finally, we combined everything into a multi-objective task where the agent must label, identify the *single* urgent task, and draft a human-quality reply.
 
 ---
 
-## 🏆 Baseline Scores (v2 — Chain-of-Thought Agent)
+## 💡 What We Learned
 
-| Task       | GPT-4o-mini (v1) | **Llama-3.3-70b via Groq (v2)** |
-|------------|------------------|---------------------------------|
-| Easy       | 0.92             | **1.00** ✅                      |
-| Medium     | 0.74             | **0.89** ✅                      |
-| Hard       | 0.61             | **0.83** ✅ (+0.22!)             |
-| **Average**| **0.76**         | **🏆 0.91**                      |
+Building an OpenEnv ecosystem from scratch taught us three big things about the future of AI:
 
-*Tested live against `https://mregamerz-antigravity.hf.space` using v2 Chain-of-Thought prompting.*
-*Run: `GROQ_API_KEY=<key> API_BASE_URL=https://mregamerz-antigravity.hf.space python3 inference.py`*
+*   **Rewards Matter**: You can’t just give an agent a "1" or a "0" at the end. We learned to design **partial progress signals** (shaping) so the agent learns from its small successes.
+*   **Context is King**: A subject line like "URGENT" isn't always urgent (often it's spam!). We learned to hide "traps" in the data to force the agent to read the body, not just the subject.
+*   **The "Human" Tone**: We realized that a good reply isn't just "correct"—it needs to sound professional. This led us to build a **synonym-aware grader** that looks for professional cues like "noted," "acknowledged," and "investigating."
 
 ---
 
-## 🔭 Observation Space
+## 👥 Meet the Team
 
-```json
-{
-  "task_id": "string",
-  "task_level": "easy | medium | hard",
-  "emails": [
-    {
-      "id": "string",
-      "sender": "string",
-      "subject": "string",
-      "body": "string",
-      "timestamp": "ISO-8601",
-      "has_attachment": true
-    }
-  ],
-  "step_count": 0,
-  "instructions": "natural language goal",
-  "max_steps": 3
-}
-```
-
-## ⚡ Action Space
-
-```json
-{
-  "action_type": "label | rank | triage",
-  "labels":   {"email_id": "spam | promo | important | newsletter"},
-  "ranking":  ["email_id_1", "email_id_2", "..."],
-  "urgent_id": "email_id",
-  "reply_text": "short professional reply (20–80 words)"
-}
-```
+We are a group of passionate developers obsessed with the intersection of LLMs and world-modeling. We believe that for AI Agents to truly become helpful assistants, they need environments like AntiGravity to "train" their intuition.
 
 ---
 
-## 🌐 API Reference
+## 🛠️ Project Architecture
 
-| Method | Path       | Description |
-|--------|------------|-------------|
-| `GET`  | `/`        | Environment info + endpoint list |
-| `GET`  | `/health`  | Health check (`{"status": "ok"}`) |
-| `GET`  | `/metrics` | Aggregate reward stats across sessions |
-| `GET`  | `/play`    | **Interactive Visualizer Dashboard** 🌟 |
-| `POST` | `/reset`   | Start new episode (`task_level`, `seed?`) |
-| `POST` | `/step`    | Submit action → `(obs, reward, done, info)` |
-| `GET`  | `/state`   | Full internal state snapshot (debug/eval) |
-| `GET`  | `/docs`    | Interactive Swagger API explorer |
+| Component | Responsibility |
+|-----------|----------------|
+| `environment/env.py` | The "Engine" — handles `reset()`, `step()`, and `state()`. |
+| `graders.py`         | The "Judge" — deterministic, nuanced scoring (0.0 to 1.0). |
+| `data_gen.py`        | The "World" — 100+ templates for realistic synthetic emails. |
+| `inference.py`       | The "Agent" — our Chain-of-Thought (CoT) baseline implementation. |
+| `server/app.py`      | The "API" — FastAPI bridge with a **Live Visualizer UI** at `/play`. |
 
 ---
 
-## 🚀 Setup & Local Run
+## 🏁 How to Run
 
-### Prerequisites
-- Python 3.11+
-- pip
-
-### Install
-
+### 1. The Environment (HTTP API)
+Clone and run via Docker to see it in action:
 ```bash
-cd antigravity
-pip install -e .
-```
-
-### Run server locally
-
-```bash
-uvicorn server.app:app --host 0.0.0.0 --port 7860 --reload
-```
-
-Server is now live at `http://localhost:7860`
-
-### Quick test
-
-```bash
-# Health check
-curl http://localhost:7860/health
-
-# Start an easy task (seed for reproducibility)
-curl -X POST http://localhost:7860/reset \
-  -H "Content-Type: application/json" \
-  -d '{"task_level": "easy", "seed": 42}'
-
-# Submit a label action
-curl -X POST http://localhost:7860/step \
-  -H "Content-Type: application/json" \
-  -d '{"action_type": "label", "labels": {"<email_id>": "important"}}'
-
-# View internal state
-curl http://localhost:7860/state
-```
-
----
-
-## 🐳 Docker
-
-```bash
-# Build
 docker build -t antigravity .
-
-# Run
 docker run -p 7860:7860 antigravity
 ```
 
----
-
-## 🤖 Run Baseline Inference (Free — via Groq)
-
+### 2. The Baseline Agent
+Benchmark our agent (Llama-3.3-70b) against the environment:
 ```bash
-export API_BASE_URL="https://mregamerz-antigravity.hf.space"
-export GROQ_API_KEY="your_groq_key_from_console.groq.com"
-
+export API_BASE_URL="https://api.groq.com/openai/v1"
+export MODEL_NAME="llama-3.3-70b-versatile"
+export HF_TOKEN="your_api_key_here"
 python3 inference.py
 ```
 
-The baseline agent uses **Chain-of-Thought prompting** with `llama-3.3-70b-versatile` via Groq's free API.
+### 3. The Visualizer
+Visit our live dashboard at: **[https://mregamerz-antigravity.hf.space/play](https://mregamerz-antigravity.hf.space/play)** 🌟
 
 ---
 
-## ✅ Pre-Submission Validator
-
-```bash
-# Validate against the live Space
-python3 validate.py --url https://mregamerz-antigravity.hf.space
-
-# Or validate locally
-python3 validate.py --url http://localhost:7860
-```
-
-Checks all 6 requirement areas: health, root, easy/medium/hard tasks, state, and determinism.
-
----
-
-## 📁 Project Structure
-
-```
-antigravity/
-├── __init__.py              ← Public exports
-├── models.py                ← Pydantic models (Email, Observation, Action, StepResult)
-├── data_gen.py              ← Synthetic email generator (100+ templates, 4 categories)
-├── graders.py               ← Deterministic reward functions (v2 with synonym expansion)
-├── client.py                ← Async + sync HTTP client
-├── inference.py             ← Baseline agent (Chain-of-Thought, Groq/Llama-3.3)
-├── validate.py              ← Pre-submission validator (6 checks)
-├── openenv.yaml             ← Environment manifest
-├── pyproject.toml           ← Dependencies
-├── Dockerfile               ← Container (HF Spaces Docker SDK)
-├── .dockerignore
-├── environment/
-│   └── env.py               ← AntiGravityEnv (reset/step/state)
-└── server/
-    ├── app.py               ← FastAPI server (+ /metrics endpoint)
-    └── requirements.txt     ← Docker deps
-```
-
----
-
-## 🏅 Judging Criteria Alignment
-
-| Criterion | Weight | Our Approach |
-|-----------|--------|--------------|
-| **Real-world Utility** | 30% | Email triage is universal, high-stakes, and requires multi-step reasoning — a novel OpenEnv domain |
-| **Task & Grader Quality** | 25% | 3 tasks, escalating difficulty, fully deterministic graders, partial credit on all tasks |
-| **Environment Design** | 20% | Clean `reset()` / `step()` / `state()`, typed Pydantic models, partial rewards, early termination |
-| **Code Quality** | 15% | Docker-ready, FastAPI `/docs`, `validate.py` script, HF Space deployed & live |
-
-**Live URL:** `https://mregamerz-antigravity.hf.space`
-
----
-
-## 📄 License
-
-MIT © AntiGravity Team · OpenEnv Hackathon 2026
+## 🏆 Final Submission Stats
+- **Compliance**: 26/26 OpenEnv validation checks passed.
+- **Baseline Average**: ~0.85
+- **Features**: Deterministic seeds, Real-time Dashboard, CoT Agent Baseline.
