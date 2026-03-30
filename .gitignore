@@ -1,4 +1,22 @@
-__pycache__/
-.DS_Store
-*.pyc
+# AntiGravity Git Ignore
+# ───────────────────────
+
+# Environment variables (Mandatory: ignore this to keep your keys safe!)
 .env
+
+# Python build/cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Large data/logs
+logs/
+.system_generated/
+*.log
