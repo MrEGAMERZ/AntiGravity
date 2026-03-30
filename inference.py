@@ -110,9 +110,10 @@ def run_medium() -> float:
         "  1. important (action required, deadlines, from real people)\n"
         "  2. newsletter (informational, no action needed)\n"
         "  3. promo (marketing, offers, discounts)\n"
-        "  4. spam (unsolicited, suspicious, irrelevant)\n"
-        "Within the same category, rank by time-sensitivity.\n"
-        "Return ONLY valid JSON, no explanation:\n"
+        "  4. spam (unsolicited, suspicious, irrelevant)\n\n"
+        "CRITICAL: The 'ranking' list must contain ONLY the alphanumeric IDs provided.\n"
+        "Do NOT include email addresses, explanations, or quotes inside the list.\n"
+        "Return ONLY valid JSON:\n"
         '{"action_type": "rank", "ranking": ["id1", "id2", ...]}'
     )
     raw = _llm_call(sys, f"Rank these emails:\n{email_str}")
@@ -143,20 +144,15 @@ def run_hard() -> float:
         "  - promo: discount, offer, marketing email\n"
         "  - spam: unsolicited, suspicious, irrelevant\n\n"
         "STEP 2 — URGENT ID: pick the ONE email that needs an immediate reply.\n"
-        "  - Must be labeled 'important'\n"
-        "  - Has the most time-sensitive language (ASAP, deadline, urgent, waiting)\n"
-        "  - From a real human, not a mailing list\n\n"
+        "  - Must be labeled 'important'. Use ONLY the alphanumeric ID.\n\n"
         "STEP 3 — REPLY: Write a professional reply to that urgent email.\n"
-        "  - 20 to 60 words, no more\n"
-        "  - Acknowledge receipt, confirm you are on it, give a timeframe\n"
-        "  - Use words like: received, understood, will handle, on it, follow up\n"
-        "  - No URLs, no ALL CAPS, no filler\n\n"
-        "Return ONLY this JSON with no explanation:\n"
+        "  - 20 to 60 words, no more. Address them professionally.\n\n"
+        "Return ONLY this JSON, no explanation:\n"
         "{\n"
         '  "action_type": "triage",\n'
         '  "labels": {"<id>": "<category>", ...},\n'
-        '  "urgent_id": "<id of the most urgent email>",\n'
-        '  "reply_text": "<your professional reply here>"\n'
+        '  "urgent_id": "<id>",\n'
+        '  "reply_text": "<text>"\n'
         "}"
     )
 
