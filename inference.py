@@ -98,9 +98,9 @@ def run_medium() -> float:
     obs = _post("/reset", {"task_level": "medium"})
     emails = obs["emails"]
     
-    # Give the model full subject + sender, not just subject
+    # Give the model full subject + sender + timestamp
     email_str = "\n".join([
-        f"- ID:{e['id']} | From:{e['sender']} | Subject:{e['subject']}"
+        f"- ID:{e['id']} | Sent:{e['timestamp']} | From:{e['sender']} | Subject:{e['subject']}"
         for e in emails
     ])
 
@@ -111,6 +111,7 @@ def run_medium() -> float:
         "  2. newsletter (informational, no action needed)\n"
         "  3. promo (marketing, offers, discounts)\n"
         "  4. spam (unsolicited, suspicious, irrelevant)\n\n"
+        "Within the same category, rank strictly by Sent date (OLDEST timestamps FIRST).\n"
         "CRITICAL: The 'ranking' list must contain ONLY the alphanumeric IDs provided.\n"
         "Do NOT include email addresses, explanations, or quotes inside the list.\n"
         "Return ONLY valid JSON:\n"
@@ -127,9 +128,10 @@ def run_hard() -> float:
     obs = _post("/reset", {"task_level": "hard"})
     emails = obs["emails"]
 
-    # Build full email context — don't truncate body at 200 chars
+    # Build full email context — include timestamp
     email_blocks = "\n\n".join([
         f"ID: {e['id']}\n"
+        f"Sent: {e['timestamp']}\n"
         f"From: {e['sender']}\n"
         f"Subject: {e['subject']}\n"
         f"Body: {e['body']}"
@@ -144,9 +146,13 @@ def run_hard() -> float:
         "  - promo: discount, offer, marketing email\n"
         "  - spam: unsolicited, suspicious, irrelevant\n\n"
         "STEP 2 — URGENT ID: pick the ONE email that needs an immediate reply.\n"
-        "  - Must be labeled 'important'. Use ONLY the alphanumeric ID.\n\n"
+        "  - Must be labeled 'important'. Use ONLY the alphanumeric ID.\n"
+        "  - If there are multiple 'important' emails, pick the OLDEST ONE (earliest Sent date).\n\n"
         "STEP 3 — REPLY: Write a professional reply to that urgent email.\n"
-        "  - 20 to 60 words, no more. Address them professionally.\n\n"
+        "  - 20 to 60 words, no more. Address them professionally.\n"
+        "  - Acknowledge receipt, confirm you are on it, give a timeframe\n"
+        "  - Use words like: received, understood, will handle, on it, follow up\n"
+        "  - No URLs, no ALL CAPS, no filler\n\n"
         "Return ONLY this JSON, no explanation:\n"
         "{\n"
         '  "action_type": "triage",\n'
