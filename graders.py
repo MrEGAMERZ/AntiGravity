@@ -152,12 +152,13 @@ def _score_reply(reply_text: Optional[str], keywords: List[str]) -> float:
 
     # ── Coherence / length score ───────────────────────────────────────────────
     word_count = len(text.split())
-    if 5 <= word_count <= 60:
+    if 5 <= word_count <= 80:
         coherence_score = 1.0
     elif word_count < 5:
         coherence_score = word_count / 5.0
     else:
-        coherence_score = max(0.0, 1.0 - (word_count - 60) / 60.0)
+        # Penalize linearly only after 80 words
+        coherence_score = max(0.0, 1.0 - (word_count - 80) / 80.0)
 
     # ── Professional tone score ────────────────────────────────────────────────
     # Penalise: all-caps words, suspicious URLs, profanity (basic)
