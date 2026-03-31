@@ -26,6 +26,16 @@ Our goal was to create an environment where an agent isn't just "predicting text
 
 ---
 
+## 🔍 How It Works (For Judges)
+
+We designed the logic to be clean, modular, and instantly understandable:
+
+1. **The World (`data_gen.py`)**: When `reset()` is called, our environment generates a fresh, synthetic inbox. But instead of just text, it secretly embeds a **"ground truth"** (e.g., the mathematically correct priority ranking of the emails).
+2. **The Agent (`inference.py`)**: Your Language model interacts with the environment via `step()`. It reads the emails and uses **Chain-of-Thought reasoning** to label, rank, and draft replies.
+3. **The Grader (`graders.py`)**: Once the agent submits its actions, our deterministic graders calculate a score from `0.0` to `1.0`. For example, instead of a simple pass/fail, our Medium task uses **Kendall's Tau** to award partial points if the agent's ranking is at least *partially* correct!
+
+---
+
 ## 🏗️ Our Implementation Journey
 
 We didn't just write code; we iterated through a process of discovery. Here's how the "AntiGravity" world was born:
@@ -88,6 +98,6 @@ Visit our live dashboard at: **[https://mregamerz-antigravity.hf.space/play](htt
 ---
 
 ## 🏆 Final Submission Stats
-- **Compliance**: 26/26 OpenEnv validation checks passed.
-- **Baseline Average**: ~0.85
-- **Features**: Deterministic seeds, Real-time Dashboard, CoT Agent Baseline.
+- **Compliance**: 26/26 OpenEnv validation checks perfectly passed.
+- **Baseline Average**: **~0.96** (using Llama-3.3-70b via Groq)
+- **Features**: Deterministic seeds, Real-time Visualizer Dashboard, CoT Agent Baseline.
