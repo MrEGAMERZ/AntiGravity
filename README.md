@@ -56,9 +56,12 @@ Building an OpenEnv ecosystem from scratch taught us three big things about the 
 
 ---
 
-## 👥 Meet the Team
+## 👥 Meet the Team (InlusionX)
 
-We are a group of passionate developers obsessed with the intersection of LLMs and world-modeling. We believe that for AI Agents to truly become helpful assistants, they need environments like AntiGravity to "train" their intuition.
+We are **InlusionX** — a duo of passionate developers obsessed with the intersection of LLMs and real-world utility. We believe that for AI Agents to truly become helpful assistants, they need environments like AntiGravity to "train" their intuition.
+
+*   **Shifana Khanum** (`shiffukhan16@gmail.com`)
+*   **Shaik Mohammad Rehan** (`mohammadrehan432432@gmail.com`)
 
 ---
 
@@ -74,17 +77,31 @@ We are a group of passionate developers obsessed with the intersection of LLMs a
 
 ---
 
-## 🏁 How to Run
+## 🏁 How to Run (For Judges)
 
-### 1. The Environment (HTTP API)
-Clone and run via Docker to see it in action:
+We've made it as simple as possible to test our project on any operating system!
+
+### 1. Start the Environment (Mac / Linux / Windows)
+The easiest way to run the API locally is using Docker. Once Docker is installed, just pop open your terminal:
+
+**On Mac & Linux:**
 ```bash
 docker build -t antigravity .
 docker run -p 7860:7860 antigravity
 ```
 
-### 2. The Baseline Agent
-Benchmark our agent (Llama-3.3-70b) against the environment:
+**On Windows (PowerShell):**
+```powershell
+docker build -t antigravity .
+docker run -p 7860:7860 antigravity
+```
+
+*(Pro tip: You can skip local Docker entirely and just hit our **live hosted endpoint**: `https://mregamerz-antigravity.hf.space`!)*
+
+### 2. Run the Baseline Agent Test
+To see our Chain-of-Thought agent tackle the environment, run the inference script. It works flawlessly across all platforms.
+
+**On Mac & Linux:**
 ```bash
 export API_BASE_URL="https://api.groq.com/openai/v1"
 export MODEL_NAME="llama-3.3-70b-versatile"
@@ -92,8 +109,17 @@ export HF_TOKEN="your_api_key_here"
 python3 inference.py
 ```
 
-### 3. The Visualizer
-Visit our live dashboard at: **[https://mregamerz-antigravity.hf.space/play](https://mregamerz-antigravity.hf.space/play)** 🌟
+**On Windows (PowerShell):**
+```powershell
+$env:API_BASE_URL="https://api.groq.com/openai/v1"
+$env:MODEL_NAME="llama-3.3-70b-versatile"
+$env:HF_TOKEN="your_api_key_here"
+python inference.py
+```
+
+### 3. Experience the Live Visualizer
+Want to see it in action without touching code? We built a beautiful, real-time UI so you can interact with the environment directly! 
+Come play around at: **[https://mregamerz-antigravity.hf.space/play](https://mregamerz-antigravity.hf.space/play)** 🌟
 
 ---
 
