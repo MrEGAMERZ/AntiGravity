@@ -18,7 +18,7 @@ from collections import defaultdict
 # Make sure the antigravity package root is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -72,15 +72,23 @@ class ResetRequest(BaseModel):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
-@app.get("/", tags=["meta"], summary="Environment info")
-def root():
-    """Returns metadata about this environment."""
+@app.get("/", tags=["meta"], summary="Environment info & Visualizer")
+def root(request: Request):
+    """
+    Smart endpoint: 
+    - Use in browser to see the Interactive Visualizer.
+    - Use via API/OpenEnv to get environment metadata.
+    """
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return play_ui()
+    
     return {
         "name": "AntiGravity",
         "version": "2.0.0",
         "description": "Email triage OpenEnv environment",
         "tasks": ["easy", "medium", "hard"],
-        "endpoints": ["/reset", "/step", "/state", "/health", "/metrics", "/docs"],
+        "endpoints": ["/reset", "/step", "/state", "/health", "/metrics", "/docs", "/play"],
         "grader_type": "deterministic",
         "reward_range": [0.0, 1.0],
     }
