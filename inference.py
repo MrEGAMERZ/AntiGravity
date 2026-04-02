@@ -46,8 +46,8 @@ def _llm_call(system_prompt: str, user_prompt: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0,
-            max_tokens=800,
+            temperature=0.1,
+            max_tokens=2000,
         )
         return completion.choices[0].message.content or ""
     except Exception as e:
@@ -63,15 +63,19 @@ def _post(path: str, body: dict) -> dict:
 def _extract_json(raw: str) -> dict:
     """Extracts JSON from CoT thinking or markdown blocks."""
     try:
-        # Strip markdown syntax
-        cleaned = re.sub(r"```(?:json)?", "", raw, flags=re.IGNORECASE).replace("```", "").strip()
-        # Find first { block
-        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        # Standard cleaning
+        text = raw.strip()
+        # Look for JSON block in markdown
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return json.loads(match.group(1))
+        # Fallback: look for any { ... } block
+        match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
             return json.loads(match.group())
-        return json.loads(cleaned)
-    except Exception:
-        raise ValueError(f"Could not extract JSON from model response.\nRaw: {raw[:200]}...")
+        return json.loads(text)
+    except Exception as e:
+        raise ValueError(f"Could not extract JSON: {e}\nRaw start: {raw[:100]}...")
 
 
 # ─── Task Implementation ──────────────────────────────────────────────────────
