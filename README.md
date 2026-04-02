@@ -1,3 +1,14 @@
+---
+title: AntiGravity
+emoji: 🌌
+colorFrom: purple
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: true
+license: mit
+---
+
 AntiGravity: Intelligent Email Triage
 
 AntiGravity is an OpenEnv environment designed to test how AI agents handle the complex task of email management. While models are often evaluated on static datasets, this project provides a dynamic environment where agents must make real-time decisions about priority, labeling, and professional communication.

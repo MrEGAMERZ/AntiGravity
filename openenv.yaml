@@ -35,7 +35,7 @@ tasks:
     action_type: rank
     reward_range: [0.0, 1.0]
     max_steps: 2
-    baseline_score: 0.89   # Llama-3.3-70b via Groq (v2 CoT agent)
+    baseline_score: 0.92   # Llama-3.3-70b via Groq (v2 CoT agent)
 
   - id: hard_triage
     level: hard
@@ -48,7 +48,7 @@ tasks:
     action_type: triage
     reward_range: [0.0, 1.0]
     max_steps: 3
-    baseline_score: 0.83   # Llama-3.3-70b via Groq (v2 CoT agent)
+    baseline_score: 0.90   # Llama-3.3-70b via Groq (v2 CoT agent)
 
 # ─── Observation Space ────────────────────────────────────────────────────────
 
