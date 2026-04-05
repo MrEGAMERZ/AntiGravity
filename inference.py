@@ -22,8 +22,13 @@ from openai import OpenAI
 
 # LLM Config (Mandatory names as per hackathon spec)
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
-API_KEY      = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-MODEL_NAME   = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
+MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Optional - if you use from_docker_image():
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+
+API_KEY = HF_TOKEN
 
 # AntiGravity Environment URL (The target to benchmark)
 # Default points to the live deployment for convenience
@@ -94,7 +99,7 @@ def run_easy() -> float:
     
     raw = _llm_call(sys, user)
     res = _post("/step", _extract_json(raw))
-    print(f"[EASY]   Reward: {res['reward']:.2f}")
+    print(f"[STEP] Easy run complete. Reward: {res['reward']:.2f}")
     return res["reward"]
 
 def run_medium() -> float:
@@ -123,7 +128,7 @@ def run_medium() -> float:
     )
     raw = _llm_call(sys, f"Rank these emails:\n{email_str}")
     res = _post("/step", _extract_json(raw))
-    print(f"[MEDIUM] Reward: {res['reward']:.2f}")
+    print(f"[STEP] Medium run complete. Reward: {res['reward']:.2f}")
     return res["reward"]
 
 
@@ -168,29 +173,26 @@ def run_hard() -> float:
 
     raw = _llm_call(sys, f"Here are the emails:\n\n{email_blocks}")
     res = _post("/step", _extract_json(raw))
-    print(f"[HARD]   Reward: {res['reward']:.2f}")
+    print(f"[STEP] Hard run complete. Reward: {res['reward']:.2f}")
     return res["reward"]
 
 
 # ─── Entry Point ─────────────────────────────────────────────────────────────
 
 def main():
-    print(f"AntiGravity Baseline — Endpoint: {OPENENV_URL}")
-    print(f"Using Model: {MODEL_NAME}")
-    print("-" * 50)
+    print(f"[START] AntiGravity Baseline — Endpoint: {OPENENV_URL}")
+    print(f"[START] Using Model: {MODEL_NAME}")
     
     scores = {}
     for task, runner in [("easy", run_easy), ("medium", run_medium), ("hard", run_hard)]:
         try:
             scores[task] = runner()
         except Exception as e:
-            print(f"[{task.upper()}] Failed: {e}")
+            print(f"[STEP] {task.upper()} Failed: {e}")
             scores[task] = 0.0
             
     avg = sum(scores.values()) / 3
-    print("-" * 50)
-    print(f"FINAL MEAN SCORE: {avg:.4f}")
-    print("-" * 50)
+    print(f"[END] FINAL MEAN SCORE: {avg:.4f}")
 
 if __name__ == "__main__":
     main()

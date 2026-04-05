@@ -124,12 +124,15 @@ def metrics():
 
 
 @app.post("/reset", response_model=Observation, tags=["env"], summary="Start a new episode")
-def reset(req: ResetRequest):
+def reset(req: Optional[ResetRequest] = None):
     """
     Reset the environment. Returns the initial Observation.
     - **task_level**: `easy` | `medium` | `hard`
     - **seed**: optional integer for reproducible episodes
     """
+    if req is None:
+        req = ResetRequest()
+        
     if req.task_level not in ("easy", "medium", "hard"):
         raise HTTPException(
             status_code=422,
