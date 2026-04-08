@@ -24,7 +24,12 @@ tasks:
     reward_range: [0.0, 1.0]
     max_steps: 2
     baseline_score: 1.00   # Llama-3.3-70b via Groq (v2 CoT agent)
-    grader: easy
+    grader:
+      type: deterministic
+      method: exact_match_with_partial_credit
+      adjacent_categories:
+        promo: [newsletter]
+        newsletter: [promo]
 
   - id: medium_rank
     level: medium
@@ -37,7 +42,10 @@ tasks:
     reward_range: [0.0, 1.0]
     max_steps: 2
     baseline_score: 0.92   # Llama-3.3-70b via Groq (v2 CoT agent)
-    grader: medium
+    grader:
+      type: deterministic
+      method: kendall_tau_normalized
+      range: [0.0, 1.0]
 
   - id: hard_triage
     level: hard
@@ -51,7 +59,18 @@ tasks:
     reward_range: [0.0, 1.0]
     max_steps: 3
     baseline_score: 0.90   # Llama-3.3-70b via Groq (v2 CoT agent)
-    grader: hard
+    grader:
+      type: deterministic
+      method: composite
+      weights:
+        label_accuracy: 0.30
+        urgency_identification: 0.30
+        reply_quality: 0.40
+      reply_scoring:
+        keyword_weight: 0.60
+        coherence_weight: 0.25
+        tone_weight: 0.15
+        synonym_expansion: true
 
 # ─── Observation Space ────────────────────────────────────────────────────────
 
@@ -115,32 +134,6 @@ action_space:
     urgent_id:
       type: string
       description: "ID of the single email requiring an urgent reply"
-
-# ─── Grader Properties ────────────────────────────────────────────────────────
-
-graders:
-  easy:
-    type: deterministic
-    method: exact_match_with_partial_credit
-    adjacent_categories:
-      promo: [newsletter]
-      newsletter: [promo]
-  medium:
-    type: deterministic
-    method: kendall_tau_normalized
-    range: [0.0, 1.0]
-  hard:
-    type: deterministic
-    method: composite
-    weights:
-      label_accuracy: 0.30
-      urgency_identification: 0.30
-      reply_quality: 0.40
-    reply_scoring:
-      keyword_weight: 0.60
-      coherence_weight: 0.25
-      tone_weight: 0.15
-      synonym_expansion: true
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
