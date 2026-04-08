@@ -18,7 +18,7 @@ from collections import defaultdict
 # Make sure the antigravity package root is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -150,6 +150,12 @@ def metrics():
         },
         "uptime_seconds": round(time.time() - _server_start),
     }
+
+
+@app.post("/mcp", tags=["meta"], summary="MCP JSON-RPC endpoint")
+def mcp_endpoint(request: dict = Body(default_factory=dict)):
+    """Returns a basic JSON-RPC 2.0 response for validation."""
+    return {"jsonrpc": "2.0"}
 
 
 @app.post("/reset", response_model=Observation, tags=["env"], summary="Start a new episode")
