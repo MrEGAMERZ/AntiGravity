@@ -25,8 +25,13 @@ from pydantic import BaseModel
 from typing import Optional
 import os
 
-from models import Action, Observation, StepResult
+from models import Action, Observation, StepResult, InboxState
 from environment.env import AntiGravityEnv
+
+class SchemaResponse(BaseModel):
+    action: dict
+    observation: dict
+    state: dict
 
 
 # ─── App setup ───────────────────────────────────────────────────────────────
@@ -98,6 +103,30 @@ def root(request: Request):
 def health():
     """Returns {status: ok} when server is running."""
     return {"status": "ok", "uptime_seconds": round(time.time() - _server_start)}
+
+
+@app.get("/metadata", tags=["meta"], summary="Environment metadata")
+def metadata():
+    """Returns detailed environment metadata for discovery."""
+    return {
+        "name": "antigravity",
+        "version": "2.0.0",
+        "description": "Email triage OpenEnv environment",
+        "author": "AntiGravity Team",
+        "license": "MIT",
+        "tasks": ["easy", "medium", "hard"],
+        "reward_range": [0.01, 0.99],
+    }
+
+
+@app.get("/schema", response_model=SchemaResponse, tags=["meta"], summary="Environment schemas")
+def get_schema():
+    """Returns JSON schemas for action, observation, and state."""
+    return {
+        "action": Action.model_json_schema(),
+        "observation": Observation.model_json_schema(),
+        "state": InboxState.model_json_schema()
+    }
 
 
 @app.get("/metrics", tags=["meta"], summary="Aggregate session metrics")
