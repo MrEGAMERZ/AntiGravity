@@ -20,13 +20,18 @@ from models import Action, InboxState, ADJACENT_CATEGORIES
 
 # ─── Utility ──────────────────────────────────────────────────────────────────
 
-def _clamp(v: float) -> float:
-    """Clamps a value strictly between (0, 1) as per Phase 2 requirements."""
-    import random
-    # Ensure score is strictly > 0 and < 1
-    # We add a tiny 'jiggle' to avoid 0.0 and 1.0 exactly
-    epsilon = 0.005 + (random.random() * 0.01)
-    val = max(epsilon, min(1.0 - epsilon, v))
+def _clamp(v: float, task_id: str = "default") -> float:
+    """
+    Clamps a value strictly between (0, 1) as per Phase 2 requirements.
+    Uses deterministic jiggle based on task_id to remain a pure function.
+    """
+    import hashlib
+    # Generate a deterministic offset [0.01, 0.02] based on the task_id
+    h = int(hashlib.md5(task_id.encode()).hexdigest(), 16)
+    jiggle = 0.01 + (h % 100) / 10000.0
+    
+    # Strictly bind between 0.01 and 0.99
+    val = max(jiggle, min(1.0 - jiggle, v))
     return round(val, 4)
 
 
@@ -53,8 +58,10 @@ def grade_label(action: Action, state: InboxState) -> float:
 
     # Apply a slight penalty if the response was extremely slow (simulated)
     # This helps ensure we aren't stuck at 1.0
+    # Apply a slight penalty if the response was extremely slow (simulated)
+    # This helps ensure we aren't stuck at 1.0
     final_score = total / count if count > 0 else 0.0
-    return _clamp(final_score * 0.98)
+    return _clamp(final_score * 0.98, state.task_id)
 
 
 # ─── Task 2: Inbox Priority Sort (Kendall's Tau) ─────────────────────────────
@@ -91,17 +98,18 @@ def _kendall_tau(pred: List[str], truth: List[str]) -> float:
 
     total = concordant + discordant
     if total == 0:
-        return 1.0
+        return 0.5  # Neutral starting point
 
     tau = (concordant - discordant) / total   # in [-1, 1]
-    return _clamp((tau + 1) / 2)              # shift to [0, 1]
+    return (tau + 1) / 2                      # result in [0, 1]
 
 
 def grade_ranking(action: Action, state: InboxState) -> float:
     """Reward is Kendall's Tau correlation, normalised to [0, 1]."""
     if not action.ranking or not state.ground_truth_ranking:
-        return 0.0
-    return _kendall_tau(action.ranking, state.ground_truth_ranking)
+        return _clamp(0.0, state.task_id)
+    raw_tau = _kendall_tau(action.ranking, state.ground_truth_ranking)
+    return _clamp(raw_tau, state.task_id)
 
 
 # ─── Task 3: Triage + Reply + Archive ────────────────────────────────────────
@@ -182,8 +190,8 @@ def _score_reply(reply_text: Optional[str], keywords: List[str]) -> float:
 
     # Final composite score for reply
     raw_score = 0.60 * keyword_score + 0.25 * coherence_score + 0.15 * tone_score
-    # Apply a small "professionalism" multiplier to avoid 1.0
-    return _clamp(raw_score * 0.99)
+    # We don't clamp here, we clamp the final output of the task functions
+    return raw_score * 0.99
 
 
 def grade_triage(action: Action, state: InboxState) -> float:
@@ -206,7 +214,7 @@ def grade_triage(action: Action, state: InboxState) -> float:
         + 0.30 * urgency_score
         + 0.40 * reply_score
     )
-    return _clamp(composite)
+    return _clamp(composite, state.task_id)
 
 
 # ─── Dispatcher ───────────────────────────────────────────────────────────────
