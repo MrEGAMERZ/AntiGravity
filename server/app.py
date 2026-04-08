@@ -101,8 +101,8 @@ def root(request: Request):
 
 @app.get("/health", tags=["meta"], summary="Health check")
 def health():
-    """Returns {status: ok} when server is running."""
-    return {"status": "ok", "uptime_seconds": round(time.time() - _server_start)}
+    """Returns {status: healthy} when server is running."""
+    return {"status": "healthy", "uptime_seconds": round(time.time() - _server_start)}
 
 
 @app.get("/metadata", tags=["meta"], summary="Environment metadata")
@@ -114,7 +114,7 @@ def metadata():
         "description": "Email triage OpenEnv environment",
         "author": "AntiGravity Team",
         "license": "MIT",
-        "tasks": ["easy", "medium", "hard"],
+        "tasks": ["easy_label", "medium_rank", "hard_triage"],
         "reward_range": [0.01, 0.99],
     }
 
