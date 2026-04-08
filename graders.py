@@ -1,17 +1,11 @@
 """
-AntiGravity — Deterministic Graders  (v2)
+AntiGravity — Deterministic Graders  (v3)
 All graders are pure functions: same input → same output, always.
-Scores are in [0.0, 1.0].
-
-Improvements over v1:
-  - Expanded reply-keyword bank with profession synonyms
-  - Sentence-coherence length bonus (not just char count)
-  - Per-email partial-credit for label grader
-  - Triage weights tweaked for better partial-reward signal
-  - Kendall's Tau handles ties gracefully
+Scores are STRICTLY in (0, 1) — never 0.0 or 1.0 exactly.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Dict, List, Optional
 
@@ -20,30 +14,30 @@ from models import Action, InboxState, ADJACENT_CATEGORIES
 
 # ─── Utility ──────────────────────────────────────────────────────────────────
 
-def _clamp(v: float, task_id: str = "default") -> float:
+def _strict(v: float, task_id: str = "default") -> float:
     """
-    Clamps a value strictly between (0, 1) as per Phase 2 requirements.
-    Uses deterministic jiggle based on task_id to remain a pure function.
+    Maps any float to the open interval (0.01, 0.99).
+    Uses a deterministic task_id-based offset so it remains a pure function.
+    EVERY return value from any grader MUST go through this function.
     """
-    import hashlib
-    # Generate a deterministic offset [0.01, 0.02] based on the task_id
     h = int(hashlib.md5(task_id.encode()).hexdigest(), 16)
+    # Deterministic small jiggle in [0.01, 0.02]
     jiggle = 0.01 + (h % 100) / 10000.0
-    
-    # Strictly bind between 0.01 and 0.99
-    val = max(jiggle, min(1.0 - jiggle, v))
-    return round(val, 4)
+    lo = jiggle
+    hi = 1.0 - jiggle
+    return round(max(lo, min(hi, float(v))), 4)
 
 
 # ─── Task 1: Single Email Label ───────────────────────────────────────────────
 
 def grade_label(action: Action, state: InboxState) -> float:
     """
-    Reward 1.0 for exact match, 0.5 if adjacent category, 0.0 otherwise.
+    Reward for exact match = 0.98, adjacent category = 0.49, wrong = 0.01.
     Multiple emails → macro-average score per email.
+    All return paths go through _strict().
     """
     if not action.labels or not state.ground_truth_labels:
-        return 0.0
+        return _strict(0.05, state.task_id)  # no submission — minimal score, not 0.0
 
     total = 0.0
     count = len(state.ground_truth_labels)
@@ -51,38 +45,32 @@ def grade_label(action: Action, state: InboxState) -> float:
     for email_id, true_cat in state.ground_truth_labels.items():
         pred_cat = (action.labels or {}).get(email_id, "")
         if pred_cat == true_cat:
-            total += 1.0
+            total += 0.98   # correct — never 1.0
         elif pred_cat in ADJACENT_CATEGORIES.get(true_cat, set()):
-            total += 0.5
-        # else: 0.0 — wrong category
+            total += 0.49   # adjacent category partial credit
+        else:
+            total += 0.05   # wrong — never 0.0
 
-    # Apply a slight penalty if the response was extremely slow (simulated)
-    # This helps ensure we aren't stuck at 1.0
-    # Apply a slight penalty if the response was extremely slow (simulated)
-    # This helps ensure we aren't stuck at 1.0
-    final_score = total / count if count > 0 else 0.0
-    return _clamp(final_score * 0.98, state.task_id)
+    raw = total / count if count > 0 else 0.05
+    return _strict(raw, state.task_id)
 
 
 # ─── Task 2: Inbox Priority Sort (Kendall's Tau) ─────────────────────────────
 
-def _kendall_tau(pred: List[str], truth: List[str]) -> float:
+def _kendall_tau_raw(pred: List[str], truth: List[str]) -> float:
     """
     Kendall's Tau correlation normalised to [0, 1].
-    tau = 1.0 means perfect agreement, 0.0 means perfect inversion.
-    Handles partial lists gracefully.
+    Returns a raw float — caller must pass through _strict().
     """
     n = len(truth)
     if n <= 1:
-        return 1.0
+        return 0.97  # trivially sorted, return near-perfect but not 1.0
 
-    # Map item → rank in ground truth
     truth_rank = {item: i for i, item in enumerate(truth)}
-
-    # Work only with items that appear in both lists
     pred_filtered = [p for p in pred if p in truth_rank]
+
     if not pred_filtered:
-        return 0.0
+        return 0.05  # nothing matched, minimal score not 0.0
 
     concordant = 0
     discordant = 0
@@ -96,41 +84,39 @@ def _kendall_tau(pred: List[str], truth: List[str]) -> float:
             else:
                 discordant += 1
 
-    total = concordant + discordant
-    if total == 0:
-        return 0.5  # Neutral starting point
+    total_pairs = concordant + discordant
+    if total_pairs == 0:
+        return 0.5
 
-    tau = (concordant - discordant) / total   # in [-1, 1]
-    return (tau + 1) / 2                      # result in [0, 1]
+    tau = (concordant - discordant) / total_pairs  # in [-1, 1]
+    return (tau + 1) / 2                           # shift to [0, 1]
 
 
 def grade_ranking(action: Action, state: InboxState) -> float:
-    """Reward is Kendall's Tau correlation, normalised to [0, 1]."""
+    """Reward is Kendall's Tau correlation, strictly in (0, 1)."""
     if not action.ranking or not state.ground_truth_ranking:
-        return _clamp(0.0, state.task_id)
-    raw_tau = _kendall_tau(action.ranking, state.ground_truth_ranking)
-    return _clamp(raw_tau, state.task_id)
+        return _strict(0.05, state.task_id)
+    raw = _kendall_tau_raw(action.ranking, state.ground_truth_ranking)
+    return _strict(raw, state.task_id)
 
 
 # ─── Task 3: Triage + Reply + Archive ────────────────────────────────────────
 
-# Expanded synonym bank — covers common professional acknowledgement styles
 _REPLY_SYNONYMS: Dict[str, List[str]] = {
-    "received":        ["received", "got it", "have received", "gotten"],
-    "on it":           ["on it", "working on it", "looking into", "investigating"],
-    "will handle":     ["will handle", "will take care", "will address", "taking care"],
-    "understood":      ["understood", "noted", "noted that", "i understand", "we understand"],
-    "confirmed":       ["confirmed", "confirm", "can confirm", "have confirmed"],
-    "acknowledge":     ["acknowledge", "acknowledging", "acknowledged"],
-    "asap":            ["asap", "as soon as possible", "right away", "immediately", "urgently"],
-    "right away":      ["right away", "straightaway", "without delay"],
-    "sorry":           ["sorry", "apologies", "apologize", "regret"],
-    "thank":           ["thank", "thanks", "grateful", "appreciate"],
-    "help":            ["help", "assist", "support", "resolve"],
-    "follow up":       ["follow up", "follow-up", "get back", "update you"],
+    "received":    ["received", "got it", "have received", "gotten"],
+    "on it":       ["on it", "working on it", "looking into", "investigating"],
+    "will handle": ["will handle", "will take care", "will address", "taking care"],
+    "understood":  ["understood", "noted", "noted that", "i understand", "we understand"],
+    "confirmed":   ["confirmed", "confirm", "can confirm", "have confirmed"],
+    "acknowledge": ["acknowledge", "acknowledging", "acknowledged"],
+    "asap":        ["asap", "as soon as possible", "right away", "immediately", "urgently"],
+    "right away":  ["right away", "straightaway", "without delay"],
+    "sorry":       ["sorry", "apologies", "apologize", "regret"],
+    "thank":       ["thank", "thanks", "grateful", "appreciate"],
+    "help":        ["help", "assist", "support", "resolve"],
+    "follow up":   ["follow up", "follow-up", "get back", "update you"],
 }
 
-# Flatten to a lookup set for quick membership test
 _ALL_POSITIVE_TOKENS = {
     token
     for synonyms in _REPLY_SYNONYMS.values()
@@ -138,92 +124,85 @@ _ALL_POSITIVE_TOKENS = {
 }
 
 
-def _score_reply(reply_text: Optional[str], keywords: List[str]) -> float:
+def _score_reply_raw(reply_text: Optional[str], keywords: List[str]) -> float:
     """
-    Improved reply scoring:
-      60% — keyword overlap (expanded synonym matching)
-      25% — sentence-level coherence (word count heuristic)
-      15% — professional tone (no ALL CAPS rants, no URLs)
+    Reply scoring — returns raw float in approximately [0, 1].
+    Caller must pass through _strict().
     """
     if not reply_text or not reply_text.strip():
-        return 0.0
+        return 0.05  # empty reply — never 0.0
 
     text = reply_text.strip()
     text_lower = text.lower()
 
-    # ── Keyword score (synonym-aware) ─────────────────────────────────────────
-    # Build expanded keyword set from provided base keywords
+    # Keyword score (synonym-aware)
     expanded_kws: set[str] = set()
     for kw in keywords:
         expanded_kws.add(kw.lower())
         for synonyms in _REPLY_SYNONYMS.values():
             if kw.lower() in synonyms:
                 expanded_kws.update(synonyms)
-
-    # Also always reward common professionalism tokens
     expanded_kws.update(_ALL_POSITIVE_TOKENS)
 
     matched = sum(1 for token in expanded_kws if token in text_lower)
-    # Normalise: reward hitting ≥3 positive tokens as full score
-    keyword_score = min(matched / 3.0, 1.0)
+    keyword_score = min(matched / 3.0, 0.97)  # cap at 0.97, not 1.0
 
-    # ── Coherence / length score ───────────────────────────────────────────────
+    # Coherence / length score
     word_count = len(text.split())
     if 5 <= word_count <= 80:
-        coherence_score = 1.0
+        coherence_score = 0.97
     elif word_count < 5:
-        coherence_score = word_count / 5.0
+        coherence_score = max(0.05, word_count / 5.0 * 0.97)
     else:
-        # Penalize linearly only after 80 words
-        coherence_score = max(0.0, 1.0 - (word_count - 80) / 80.0)
+        coherence_score = max(0.05, 0.97 - (word_count - 80) / 80.0)
 
-    # ── Professional tone score ────────────────────────────────────────────────
-    # Penalise: all-caps words, suspicious URLs, profanity (basic)
+    # Professional tone score
     caps_ratio = sum(1 for w in text.split() if w.isupper() and len(w) > 2) / max(len(text.split()), 1)
     has_url = bool(re.search(r"https?://", text))
-    tone_score = 1.0
+    tone_score = 0.97
     if caps_ratio > 0.3:
         tone_score -= 0.4
     if has_url:
         tone_score -= 0.2
-    tone_score = max(0.0, tone_score)
+    tone_score = max(0.05, tone_score)
 
-    # Final composite score for reply
-    raw_score = 0.60 * keyword_score + 0.25 * coherence_score + 0.15 * tone_score
-    # We don't clamp here, we clamp the final output of the task functions
-    return raw_score * 0.99
+    return 0.60 * keyword_score + 0.25 * coherence_score + 0.15 * tone_score
 
 
 def grade_triage(action: Action, state: InboxState) -> float:
     """
-    Composite score (v2):
-      0.30 × label accuracy (per email)
+    Composite score:
+      0.30 × label accuracy
       0.30 × correct urgent email identified
-      0.40 × reply quality (synonym-aware keyword + coherence + tone)
+      0.40 × reply quality
+    All component scores and final score pass through _strict().
     """
     label_score = grade_label(action, state)
 
-    # Urgency identification — binary but weighted low enough not to kill score
-    urgency_score = 1.0 if action.urgent_id == state.urgent_email_id else 0.0
+    # Urgency: use 0.97/0.05 instead of 1.0/0.0
+    urgency_raw = 0.97 if action.urgent_id == state.urgent_email_id else 0.05
+    urgency_score = _strict(urgency_raw, state.task_id)
 
-    # Reply quality — improved scorer
-    reply_score = _score_reply(action.reply_text, state.expected_reply_keywords)
+    reply_raw = _score_reply_raw(action.reply_text, state.expected_reply_keywords)
+    reply_score = _strict(reply_raw, state.task_id)
 
     composite = (
         0.30 * label_score
         + 0.30 * urgency_score
         + 0.40 * reply_score
     )
-    return _clamp(composite, state.task_id)
+    return _strict(composite, state.task_id)
 
 
 # ─── Dispatcher ───────────────────────────────────────────────────────────────
 
 def compute_reward(action: Action, state: InboxState) -> float:
+    """Route to the correct grader. All paths return strictly (0, 1)."""
     if state.task_level == "easy":
         return grade_label(action, state)
     elif state.task_level == "medium":
         return grade_ranking(action, state)
     elif state.task_level == "hard":
         return grade_triage(action, state)
-    return 0.0
+    # Fallback: never 0.0
+    return _strict(0.1, "fallback")

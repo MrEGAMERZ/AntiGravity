@@ -51,7 +51,7 @@ class Action(BaseModel):
 
 class StepResult(BaseModel):
     observation: Observation
-    reward: float = Field(ge=0.0, le=1.0)
+    reward: float = Field(gt=0.0, lt=1.0)  # strictly between 0 and 1 per OpenEnv spec
     done: bool = False
     info: Dict = Field(default_factory=dict)
 
