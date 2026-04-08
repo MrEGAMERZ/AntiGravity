@@ -90,7 +90,7 @@ def _extract_json(raw: str) -> dict:
 
 # ─── Task Runners ─────────────────────────────────────────────────────────────
 
-def run_easy(task_rewards: list[float], total_steps: list[int]) -> float:
+def run_easy() -> tuple[float, int]:
     """Task 1: Single Email Labeling."""
     obs = _post("/reset", {"task_level": "easy"})
     email = obs["emails"][0]
@@ -113,13 +113,12 @@ def run_easy(task_rewards: list[float], total_steps: list[int]) -> float:
     reward = float(res.get("reward", 0.05))
     done = bool(res.get("done", True))
 
-    total_steps[0] += 1
-    task_rewards.append(reward)
-    log_step(step=total_steps[0], action=action_str, reward=reward, done=done, error=None)
-    return reward
+    step_count = 1
+    log_step(step=step_count, action=action_str, reward=reward, done=done, error=None)
+    return reward, step_count
 
 
-def run_medium(task_rewards: list[float], total_steps: list[int]) -> float:
+def run_medium() -> tuple[float, int]:
     """Task 2: Inbox Priority Ranking (Kendall's Tau)."""
     obs = _post("/reset", {"task_level": "medium"})
     emails = obs["emails"]
@@ -152,13 +151,12 @@ def run_medium(task_rewards: list[float], total_steps: list[int]) -> float:
     reward = float(res.get("reward", 0.05))
     done = bool(res.get("done", True))
 
-    total_steps[0] += 1
-    task_rewards.append(reward)
-    log_step(step=total_steps[0], action=action_str, reward=reward, done=done, error=None)
-    return reward
+    step_count = 1
+    log_step(step=step_count, action=action_str, reward=reward, done=done, error=None)
+    return reward, step_count
 
 
-def run_hard(task_rewards: list[float], total_steps: list[int]) -> float:
+def run_hard() -> tuple[float, int]:
     """Task 3: Full Triage (Label + Urgent ID + Reply)."""
     obs = _post("/reset", {"task_level": "hard"})
     emails = obs["emails"]
@@ -195,33 +193,32 @@ def run_hard(task_rewards: list[float], total_steps: list[int]) -> float:
     reward = float(res.get("reward", 0.05))
     done = bool(res.get("done", True))
 
-    total_steps[0] += 1
-    task_rewards.append(reward)
-    log_step(step=total_steps[0], action=action_str, reward=reward, done=done, error=None)
-    return reward
+    step_count = 1
+    log_step(step=step_count, action=action_str, reward=reward, done=done, error=None)
+    return reward, step_count
 
 
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
 def main():
-    log_start(task="email-triage", env="antigravity", model=MODEL_NAME)
+    task_mappings = [
+        ("easy_label", run_easy),
+        ("medium_rank", run_medium),
+        ("hard_triage", run_hard)
+    ]
 
-    task_rewards: list[float] = []
-    total_steps = [0]
-    scores = {}
-
-    for task_name, runner in [("easy", run_easy), ("medium", run_medium), ("hard", run_hard)]:
+    for task_id, runner in task_mappings:
+        log_start(task=task_id, env="antigravity", model=MODEL_NAME)
+        task_rewards = []
         try:
-            scores[task_name] = runner(task_rewards, total_steps)
+            reward, steps = runner()
+            task_rewards.append(reward)
+            success = reward > 0.5
+            log_end(success=success, steps=steps, score=reward, rewards=task_rewards)
         except Exception as e:
-            total_steps[0] += 1
-            task_rewards.append(0.05)
-            log_step(step=total_steps[0], action=f"{task_name}_failed", reward=0.05, done=True, error=str(e)[:80])
-            scores[task_name] = 0.05
-
-    avg_score = sum(scores.values()) / len(scores) if scores else 0.0
-    success = avg_score > 0.5
-    log_end(success=success, steps=total_steps[0], score=avg_score, rewards=task_rewards)
+            log_step(step=1, action=f"{task_id}_failed", reward=0.05, done=True, error=str(e)[:80])
+            log_end(success=False, steps=1, score=0.05, rewards=[0.05])
+        print("")  # Add newline separator between tasks
 
 
 if __name__ == "__main__":
