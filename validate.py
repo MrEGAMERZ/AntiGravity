@@ -51,7 +51,7 @@ def run_validation(base_url: str) -> None:
     try:
         h = get(base, "/health")
         check("GET /health returns 200", True, str(h))
-        check("Status is 'ok'", h.get("status") == "ok")
+        check("Status is 'healthy'", h.get("status") == "healthy")
     except Exception as e:
         check("GET /health", False, str(e))
         print("\n  ERROR: Cannot reach server. Aborting.\n")
