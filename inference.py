@@ -201,11 +201,28 @@ def run_hard() -> tuple[float, int]:
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--task", default="all", help="Task ID to run, or 'all'")
+    args = parser.parse_args()
+
+    # Support TASK_NAME env var injected by hackathon grader
+    task_override = os.getenv("TASK_NAME")
+    if task_override:
+        args.task = task_override
+
     task_mappings = [
         ("easy_label", run_easy),
         ("medium_rank", run_medium),
         ("hard_triage", run_hard)
     ]
+
+    # Filter tasks based on requested argument
+    if args.task != "all":
+        task_mappings = [t for t in task_mappings if t[0] == args.task]
+        if not task_mappings:
+            print(f"Error: Unknown task '{args.task}'. Valid tasks are: easy_label, medium_rank, hard_triage, all", file=sys.stderr)
+            return
 
     for task_id, runner in task_mappings:
         log_start(task=task_id, env="antigravity", model=MODEL_NAME)
