@@ -24,6 +24,7 @@ tasks:
     reward_range: [0.0, 1.0]
     max_steps: 2
     baseline_score: 1.00   # Llama-3.3-70b via Groq (v2 CoT agent)
+    grader: easy
 
   - id: medium_rank
     level: medium
@@ -36,6 +37,7 @@ tasks:
     reward_range: [0.0, 1.0]
     max_steps: 2
     baseline_score: 0.92   # Llama-3.3-70b via Groq (v2 CoT agent)
+    grader: medium
 
   - id: hard_triage
     level: hard
@@ -49,6 +51,7 @@ tasks:
     reward_range: [0.0, 1.0]
     max_steps: 3
     baseline_score: 0.90   # Llama-3.3-70b via Groq (v2 CoT agent)
+    grader: hard
 
 # ─── Observation Space ────────────────────────────────────────────────────────
 
